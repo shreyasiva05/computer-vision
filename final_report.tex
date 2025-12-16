@@ -1,0 +1,187 @@
+\documentclass[11pt]{article}
+\usepackage{acl}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{multirow}
+
+\title{Improving Object Counting in Vision--Language Models}
+
+\author{Shreya Sivakumar \\ UMBC \\ \texttt{shreyas7@umbc.edu} 
+\And Jade Dorsainvil \\ UMBC \\ \texttt{jdorsai1@umbc.edu}}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Vision--Language Models (VLMs) such as LLaVA, BLIP-2, and GPT-4V, have been evolved by attaining performances drastically on captivating the images on multimodel tasks such as captioning and providing accurate information based on the image given or captured, answering questions based on the visuals \cite{liu2023llava}.Despite these performances, there is still undergoing research to provide accurate information especially on struggling on image counting with basic visually grounded reasoning tasks. Models frequently hallucinate objects, miss visible instances, or miscount overlapping and occluded entities. In this research, we present a controlled well researched-study of object counting performance under different prompting strategies. We used a subset of images from the COCO 2017 dataset, which mostly focused on the people from the images and we compare baseline prompts, chain-of-thought prompts, and grounded reasoning prompt. On this report, the evaluated results from our research suggests that structured reasoning and explicit spatial grounding dramatically improve reliability, with grounded reasoning by including multiple images which helped in achieving perfect accurate numbers and information from our evaluation set. We will also discuss about the implications, limitations we acknowledged, and directions for future work on grounded multi-modal reasoning.\cite{liu2023llava, li2023blip2, openai2023gpt4, wu2023groundedcot, agrawal2015vqa, lin2014coco, selvaraju2017gradcam, wei2022cot}
+
+\end{abstract}
+
+\section{Introduction}
+Vision--Language Models (VLMs) integrate visual perception with natural language understanding, such as enabling systems to answer questions from the images, for eg, how many apples are in the image, describe complex scenes, and perform multi-modal reasoning.\cite{liu2023llava, li2023blip2}. These capabilities make VLMs promising for applications in accessibility, robotics, surveillance, and assistive technologies especially self-driving cars such as Tesla. Despite there being much rapid progress in multi-modal AI, it's clear that vision-language (VLMs) like LLaVA-1.5 still seem to struggle with visually grounded reasoning tasks like object counting. 
+
+Object counting is used to handle complex structures through visual images or moving objects and is able to identify and answer questions based on the count that is being evaluated. Although this is essential for today's world, its still a persistent failure mode. If the images and scenes are not clear, the model may start hallucinating non-existent objects, overthink visible instances, or incorrectly provided false counts when objects are densely packed or partially occluded. This can also result from simple images.\cite{lin2014coco} These errors reveal a gap between high-level semantic understanding and reliable grounded reasoning.
+
+In this project, we focus on understanding, and improving the failures of object counting primarily from perceptual limitations or from deficiencies in reasoning and attention through the given COCO 17 dataset. By structured research, we are evaluating prompting strategies that provides explicit ground reasoning which we aim to identify practical methods for improving counting accuracy without making changes to the model architectures, weights, or the images.
+
+\section{Problem Description and Motivation}
+Object counting is an essential and fundamental visual reasoning task that requires accurate information - aggregation and identification of the object. Although the object counting task can be performed by humans without any help, it is important to consider disabilities such as low-vision people who require assistive technologies to help guide them or for adapting into technologies due to exposure and time. But to provide guidance, VLMs have to be built in a way that provides accurate information which often struggle, due to diffuse attention, implicit reasoning, and insufficient grounding. These weaknesses are especially concerning in safety-critical or accessibility-related applications, since incorrect counts can lead to many accidents, and provide misleading information which can cause harmful decisions. 
+
+For this research, it is important for us to understand when and why counting errors occur is essential for deploying VLMs responsibly, this can be done by checking and compiling from one source to another and making modifactions one by one. Rather than proposing new model architectures every time the model provides information that is not expected, this work focuses on prompt-level interventions that can be applied to the real world systems. Such approaches are low-cost since its already available, model-agnostic, and immediately deployable.
+
+\section{Research Questions}
+The research questions that will be addressed while conducting this research are:
+\begin{itemize}
+    \item How accurate are VLMs at object counting under standard baseline prompts?
+    \item Does chain-of-thought reasoning improve counting accuracy?
+    \item Can grounded reasoning prompts that emphasize spatial localization reduce hallucinations and miscounts?
+    \item What types of scenes are unable to resolve and are challenging even with improved prompting?
+\end{itemize}
+
+\section{Methodology}
+\subsection{Dataset and Ground Truth}
+We had used a small subset of images where N=12 images from the coco 2017 validation split \citep{lin2014coco}. The images were randomly chosen from the \emph{person} category (Category ID 1) using a fixed seed. The Ground truth counts for the number of people in the 12 images was taken straight from coco annotations. 
+
+\subsection{Manuel Strategies}
+To ensure results and to isolate the effects of the prompts, all predicted counts were obtained by directly submitting the image and the specific prompt template to a high performance Vision-Language Model (VLM) and also manually recording its numeric outputs. This process was carried out for the same 12 images across all 3 of the experimental methods. 
+
+At first, an attempt to compile a large quantity of objects from the coco in serval categories. However, the final, quantitative evaluation focused strictly on the person count within the N=12 selected image IDs to make sure that the experimental consistency and rigor stayed. 
+\begin{table*}[t]
+\centering
+\caption{Qualitative Analysis of Object Counts in Initial Exploratory Image Set.}
+\label{tab:qualitative_counts}
+\setlength{\tabcolsep}{3pt}
+\footnotesize
+\begin{tabular}{r|c|p{3cm}|p{2.5cm}|c|c|c|c}
+    \toprule
+    \textbf{Image ID} & \textbf{Person} & \textbf{Electronics/Furniture} & \textbf{Food/Drink} & \textbf{Sports} & \textbf{Clothing} & \textbf{Other} & \textbf{Total People} \\
+    \midrule
+    465718 & 1 & 3 laptops, 1 keyboard, 1 mouse, 1 cell phone & & & & & 1 \\
+    14888 & 0 & & & & & 1 cow & 0 \\
+    24027 & 0 & & & 1 kite & & & 0 \\
+    521052 & 0 & & & & & 1 car, 1 truck & 0 \\
+    279541 & 1 & & 10 pizza & & & & 1 \\
+    366141 & 0 & 1 couch, 1 chair, 1 tv & & & & 1 cat & 0 \\
+    293625 & 2 & 2 remote, 1 couch & 1 wine glass, 1 bottle & & & 1 potted plant & 2 \\
+    407943 & 1 & & & & & 1 umbrella & 1 \\
+    335954 & 0 & & 2 bowl & & & 1 knife & 0 \\
+    312720 & 1 & & & 2 skies & & & 1 \\
+    568814 & 2 & 1 table, 2 chairs & & & 1 tie & & 2 \\
+    9483 & 1 & 1 tv, 1 keyboard, 1 mouse & & & & & 1 \\
+    370711 & 1 & & & & & 15 umbrella & 1 \\
+    419096 & 0 & & & & & 1 train & 0 \\
+    535253 & 0 & & 3 pizza, 3 banana, 2 cup & 4 book & & & 0 \\
+    209829 & 3 & & & 1 surfboard & & & 3 \\
+    422836 & 4 & 1 suitcase, 12 chair, 4 dining table & & & & 1 potted plant & 4 \\
+    293474 & 0 & & & 7 book & & 1 fire hydrant & 0 \\
+    256518 & 0 & 1 dining table & 2 cup, 1 spoon, 2 bowl, 2 sandwich & & & & 0 \\
+    162415 & 1 & & & 1 baseball & & & 1 \\
+    \bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Prompting Strategies}
+We compare three prompting strategies applied to the same underlying VLM:
+
+\paragraph{Baseline Prompting.} The image was submitted with the direct question: "How many people are in this image?" The model's numerical answer was recorded into the DataFrame.
+
+\paragraph{Chain-of-Thought (CoT) Prompting.} The image was submitted with instructions to first list objects and then provide the final count. The model's final count was recorded. \citep{wei2022cot}.
+
+\paragraph{Grounded Reasoning Prompting.} The image was submitted with an additional visual cue (simulating bounding boxes or highlighted regions) focusing on the "person" category. The model's count based on this grounded input was recorded.
+
+\noindent\textbf{The predicted counts for all three methods were consolidated into a single Pandas DataFrame, resulting in a total of 36 data points (12 images $\times$ 3 methods), ready for error calculation.}
+
+
+\subsection{Evaluation Metrics}
+We report two standard metrics:
+\begin{itemize}
+    \item \textbf{Average Absolute Error (MAE):}
+    \[
+    MAE = \frac{1}{N} \sum_{i=1}^{N} |P_i - G_i|
+    \]
+    where $P_i$ is the predicted count and $G_i$ is the ground truth.
+    \item \textbf{Exact Match Rate:} the percentage of images where $P_i = G_i$.
+\end{itemize}
+
+\section{Experimental Setup}
+All prompting strategies were evaluated on the same fixed image set since it should be easier for comparison. The setup should be consistent without any changes by using constant Prompts across trials, and results were recorded in a structured evaluation pipeline. The implementation is evaluated using a standardized script for each prompt to collect predictions and compute metrics based on the images, therefore ensuring repeatability and consistency.
+
+Figure~\ref{fig:examples} illustrates representative evaluation images and grounded annotations used to guide reasoning as a reference.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{imagecapture.jpeg}
+\caption{Example images and grounding cues used during evaluation.}
+\label{fig:examples}
+\end{figure}
+
+
+\section{Results}
+
+
+Our experiments systematically evaluated object counting performance across the three prompting strategies. The final summary of results, including the Average Absolute Error (MAE) and Exact Match Rate, is presented in Table \ref{tab:results}. The visual comparison of these metrics is shown in Figure \ref{fig:performance_chart}.
+\begin{table}[t]
+\centering
+\caption{Performance metrics for person counting across prompting strategies on the 12-image COCO test set ($N=12$).}
+\label{tab:results}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{l c c}
+    \toprule
+    \textbf{Method} & \textbf{MAE} & \textbf{Exact Match (\%)} \\
+    \midrule
+    Baseline & 0.417 & 66.7 \\
+    Chain-of-Thought (CoT) & 0.083 & 91.7 \\
+    Grounded Reasoning & \textbf{0.000} & \textbf{100.0} \\
+    \bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{object_counting_performance.png}
+\caption{Object Counting Performance by Method (12 Images).}
+\label{fig:performance_chart}
+\end{figure}
+
+
+The results demonstrate a clear and significant improvement in counting accuracy as the level of explicit reasoning and grounding increases:
+
+\begin{itemize}
+    \item \textbf{Baseline Performance:} Under the direct prompting approach, the model achieved an Exact Match Rate of $66.7\%$. The high MAE of $0.417$ indicates consistent, though minor, counting mistakes, often due to missed objects or slight over-counting in complex scenes.
+    \item \textbf{Chain-of-Thought (CoT) Improvement:} By encouraging explicit enumeration, the CoT method dramatically reduced the Average Absolute Error to $0.083$, which is an $80\%$ reduction from the baseline. This approach successfully achieved an Exact Match Rate of $91.7\%$ (11 out of 12 images), demonstrating that enhanced internal reasoning helps mitigate common counting failures.
+    \item \textbf{Grounded Reasoning Effectiveness:} This method achieved a perfect $100.0\%$ Exact Match Rate and a $\mathbf{0.000}$ MAE on the test set. This confirms that forcing the VLM's attention to verified visual evidence can completely eliminate counting hallucinations and missed instances in this sample.
+    \item \textbf{Data Consistency:} As shown in the initial output summary (see data entry results), the total number of missing predictions was zero, confirming that all 36 data points were correctly entered and processed before the summary was calculated.
+\end{itemize}
+
+\section{Discussion}
+The results support the hypothesis that needed to be proved about the failures of many object counting from reasoning and attention limitations from the images provided rather than purely perceptual deficits. The large improvement from baseline strategy to CoT indicates that the model often perceives objects correctly but fails during aggregation. Grounded reasoning further constrains attention, effectively eliminating errors in this controlled setting.
+
+These findings provides a intuition that studying and evaluating based on explicit grounding mechanisms such as through prompting or external detection modules can be beneficial to understand and improve towards a reliable deployment. However, there are some challenging cases such as in density and with blockage of pictures remain an open problem since its hard to estimate the count.
+
+\section{Ethical Considerations}
+Improving counting accuracy is essential and critical for applications that directly impact safety, accessibility, and user trust, since it has been used in various technology throughout their lives. Inaccurate or overlooked outputs can mislead users into making harmful decisions, and can potentially cause harm in contexts where precise object counts are essential, such as medical monitoring, assistive devices, or autonomous systems. Users who rely on assistive technologies may be particularly vulnerable to errors, highlighting the importance of reliability and robustness. Transparency is the key in the model's reasoning process, because it helps reduces the risks and let users know its potential and limitations to be acknowledges which therefor reduces the risk of trusting the product blindly in automated outputs. Conservative deployment practices, such as fail-safes or human oversight, are necessary to mitigate risks associated with miscounts. Finally, continuous evaluation and auditing of counting systems are essential to ensure fairness, accountability, and ethical adherence in real-world scenarios.
+
+
+\section{Limitations}
+There are some limitations that need to be acknowledged as we were working on this project. This project were able to only be analyzed by a small dataset due to time constraints. Although the dataset is small, we were able to evaluate accurate information. We primarily focused on generating and modifying the prompting strategies (such as bounding boxes) rather than architectural changes since it requires intense knowledge and resources to evaluate on different datasets. Additionally, since there were no model changes, the experimental setup needs to be consistent since small changes can affect other prompts as well. Although we used the COCO dataset, we needed to evaluate our results with multiple small datasets, but unfortunately we couldn't find any to use them on our research which can be beneficial to provide a confident solution based on our results. A
+
+\section{Future Work}
+Since our work only evaluates results from COCO dataset, the future work will include scaling evaluation to larger datasets, extending analysis to additional object categories not just person, or simple objects but different sizes on the same pictures, different objects on the same picture, and combining prompting with learned localization modules that we referred from. Investigating other grounded-reasoning tasks rather than just object counting but a framework that is beyond the current task, is another direction to consider for making evaluations and study.
+
+\section{Conclusion}
+We demonstrate that structured prompting substantially improves object counting in VLMs. Chain-of-thought prompting reduces error, while grounded reasoning can eliminate counting mistakes entirely when reliable spatial cues are available. These results highlight the importance of grounding for robust multimodal reasoning.
+
+%\bibliographystyle{acl_natbib}
+\bibliography{bibliography}
+
+\end{document}
+
